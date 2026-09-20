@@ -1,5 +1,9 @@
+#[cfg(test)]
+mod soft;
+
 cfg_if::cfg_if! {
     if #[cfg(any(sha2_backend = "soft", sha2_256_backend = "soft"))] {
+        #[cfg(not(test))]
         mod soft;
         use soft::compress;
     } else if #[cfg(any(sha2_backend = "riscv-zknh", sha2_256_backend = "riscv-zknh"))] {
@@ -42,6 +46,7 @@ cfg_if::cfg_if! {
         mod wasm32_simd128;
         use wasm32_simd128::compress;
     } else {
+        #[cfg(not(test))]
         mod soft;
 
         cfg_if::cfg_if! {
@@ -81,3 +86,6 @@ cfg_if::cfg_if! {
 pub fn compress256(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
     compress(state, blocks)
 }
+
+#[cfg(test)]
+mod tests;

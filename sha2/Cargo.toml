@@ -10,6 +10,7 @@ repository = "https://github.com/RustCrypto/hashes"
 license = "MIT OR Apache-2.0"
 keywords = ["sha2", "hash", "digest"]
 categories = ["cryptography", "no-std"]
+exclude = ["tests/data/import_nist.py"]
 description = """
 Pure Rust implementation of the SHA-2 hash function family
 including SHA-224, SHA-256, SHA-384, and SHA-512.
@@ -25,6 +26,9 @@ cpufeatures = "0.3"
 [dev-dependencies]
 digest = { version = "0.11", features = ["dev"] }
 hex-literal = "1"
+
+[target.'cfg(all(target_arch = "x86_64", unix))'.dev-dependencies]
+libc = "0.2"
 
 [features]
 default = ["alloc", "oid"]
