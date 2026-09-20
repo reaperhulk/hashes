@@ -8,7 +8,10 @@ use test::Bencher;
 bench_update!(
     Sha256::default();
     sha256_10 10;
+    sha256_64 64;
     sha256_100 100;
+    sha256_128 128;
+    sha256_192 192;
     sha256_1000 1000;
     sha256_10000 10000;
 );
