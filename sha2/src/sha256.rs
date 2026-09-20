@@ -1,5 +1,9 @@
+#[cfg(test)]
+mod soft;
+
 cfg_if::cfg_if! {
     if #[cfg(any(sha2_backend = "soft", sha2_256_backend = "soft"))] {
+        #[cfg(not(test))]
         mod soft;
         use soft::compress;
     } else if #[cfg(any(sha2_backend = "riscv-zknh", sha2_256_backend = "riscv-zknh"))] {
@@ -11,6 +15,16 @@ cfg_if::cfg_if! {
         fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
             // SAFETY: we checked above that the required target features are enabled
             unsafe { riscv_zknh::compress(state, blocks) }
+        }
+    } else if #[cfg(sha2_256_backend = "x86-avx2")] {
+        mod x86_avx2;
+
+        #[cfg(not(all(target_feature = "avx2", target_feature = "bmi2")))]
+        compile_error!("x86-avx2 backend requires `avx2` and `bmi2` target features");
+
+        fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+            // SAFETY: we checked above that the required target features are enabled
+            unsafe { x86_avx2::compress(state, blocks) }
         }
     } else if #[cfg(sha2_256_backend = "x86-sha")] {
         mod x86_sha;
@@ -42,7 +56,15 @@ cfg_if::cfg_if! {
         mod wasm32_simd128;
         use wasm32_simd128::compress;
     } else {
+        #[cfg(not(test))]
         mod soft;
+
+        #[cfg(target_arch = "x86_64")]
+        mod x86_avx2;
+        #[cfg(target_arch = "x86_64")]
+        mod x86_dispatch;
+        #[cfg(target_arch = "x86_64")]
+        cpufeatures::new!(avx2_cpuid, "avx2", "bmi2");
 
         cfg_if::cfg_if! {
             if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
@@ -56,7 +78,20 @@ cfg_if::cfg_if! {
 
         fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
             cfg_if::cfg_if! {
-                if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
+                if #[cfg(target_arch = "x86_64")] {
+                    use x86_dispatch::Backend;
+                    match x86_dispatch::select(shani_cpuid::get(), avx2_cpuid::get) {
+                        Backend::ShaNi => {
+                            // SAFETY: SHA and SSE4.1 were detected above.
+                            return unsafe { x86_sha::compress(state, blocks) };
+                        }
+                        Backend::Avx2 => {
+                            // SAFETY: AVX2 and BMI2 were detected above.
+                            return unsafe { x86_avx2::compress(state, blocks) };
+                        }
+                        Backend::Soft => {}
+                    }
+                } else if #[cfg(target_arch = "x86")] {
                     if shani_cpuid::get() {
                         // SAFETY: we checked that required target features are available
                         return unsafe { x86_sha::compress(state, blocks) };
@@ -81,3 +116,6 @@ cfg_if::cfg_if! {
 pub fn compress256(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
     compress(state, blocks)
 }
+
+#[cfg(test)]
+mod tests;

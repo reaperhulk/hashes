@@ -291,6 +291,7 @@ dependencies = [
  "cpufeatures",
  "digest",
  "hex-literal",
+ "libc",
 ]
 
 [[package]]

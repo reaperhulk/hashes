@@ -88,6 +88,46 @@ jobs:
         env:
           RUSTFLAGS: -Dwarnings --cfg sha2_backend="soft" --cfg sha2_backend_soft="compact"
 
+  # Exercise the complete API through AVX2 even on hosts with SHA-NI.
+  avx2:
+    needs: set-msrv
+    strategy:
+      fail-fast: false
+      matrix:
+        rust:
+          - ${{needs.set-msrv.outputs.msrv}}
+          - stable
+        platform:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.platform.os }}
+    env:
+      RUSTFLAGS: -Dwarnings --cfg sha2_256_backend="x86-avx2" -C target-feature=+avx2,+bmi2 -C force-frame-pointers=yes
+    steps:
+      - uses: actions/checkout@v7
+      - uses: RustCrypto/actions/cargo-cache@master
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.platform.target }}
+      - name: Require AVX2 and BMI2 at runtime
+        shell: bash
+        run: |
+          # Invoke rustc directly without target-feature flags: a probe compiled
+          # with +avx2,+bmi2 would constant-fold feature detection to true.
+          cat > "$RUNNER_TEMP/check-avx2.rs" <<'RS'
+          fn main() {
+              assert!(std::is_x86_feature_detected!("avx2"));
+              assert!(std::is_x86_feature_detected!("bmi2"));
+          }
+          RS
+          rustc --target ${{ matrix.platform.target }} "$RUNNER_TEMP/check-avx2.rs" -o "$RUNNER_TEMP/check-avx2.exe"
+          "$RUNNER_TEMP/check-avx2.exe"
+      - run: cargo test --all-features --target ${{ matrix.platform.target }}
+      - run: cargo test --release --all-features --target ${{ matrix.platform.target }}
+
   # macOS tests
   macos:
     needs: set-msrv

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## 0.11.1 (UNRELEASED)
+### Added
+- AVX2/BMI2 backend for SHA-224 and SHA-256 on x86_64, automatically selected
+  when SHA-NI is unavailable
+- `sha2_256_backend="x86-avx2"` configuration flag to force the new backend
+  (requires the `avx2` and `bmi2` target features)
+
 ### Changed
 - Removed workaround for unaligned loads in `riscv-zknh` backend ([#879])
 - `riscv-zknh` no longer requires `zbkb` (or `zbb`) target feature ([#879])

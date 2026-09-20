@@ -69,6 +69,7 @@ SHA-256 and SHA-512 backends:
 SHA-256 only backends:
 - `aarch64-sha2`: uses the AArch64 `sha2` extension.
 - `x86-sha`: uses the x86 SHA-NI extension.
+- `x86-avx2`: uses AVX2 and BMI2 on x86_64, scheduling two blocks in parallel.
 
 SHA-512 only backends:
 - `aarch64-sha3`: uses the AArch64 `sha3` extension.
@@ -77,8 +78,9 @@ SHA-512 only backends:
 By default the following backends are used:
 - `target_arch = "aarch64"`: use `aarch64-sha2` and `aarch64-sha3` when the required
   target features are detected at runtime; otherwise fall back to `soft`.
-- `any(target_arch = "x86", target_arch = "x86_64")`: use `x86-sha` and `x86-avx` when
-  the required target features are detected at runtime; otherwise fall back to `soft`.
+- `any(target_arch = "x86", target_arch = "x86_64")`: SHA-256 prefers `x86-sha`, then
+  `x86-avx2` on x86_64; SHA-512 uses `x86-avx2`. Each backend requires its target
+  features to be detected at runtime; otherwise fall back to `soft`.
 - `target_arch = "loongarch64"`: use `loongarch64-asm`.
 - `all(target_arch = "wasm32", target_feature = "simd128")`: use `wasm32-simd128`.
 - All other targets: use `soft`.
@@ -86,12 +88,15 @@ By default the following backends are used:
 You can force backend selection using the following configuration flags:
 - `sha2_backend`: select SHA-256 and SHA-512 backends. Supported values: `soft`, `riscv-zknh`.
 - `sha2_256_backend`: select SHA-256 backend. Supported values: `aarch64-sha2`, `soft`,
-  `riscv-zknh`, `x86-sha`.
+  `riscv-zknh`, `x86-sha`, `x86-avx2`.
 - `sha2_512_backend`: select SHA-512 backend. Supported values: `aarch64-sha3`, `soft`,
   `riscv-zknh`, `x86-avx2`.
 
 They can be enabled using either a `RUSTFLAGS` environment variable
 (e.g. `RUSTFLAGS='--cfg sha2_backend="soft"'`), or by modifying your `.cargo/config.toml` file.
+
+Forcing SHA-256's `x86-avx2` backend also requires enabling both target features:
+`RUSTFLAGS='--cfg sha2_256_backend="x86-avx2" -C target-feature=+avx2,+bmi2'`.
 
 Note that `sha2_backend` has a higher priority than `sha2_256_backend` and `sha2_512_backend`.
 In other words, using `--cfg sha2_backend="soft" --cfg sha2_256_backend="x86_sha"` will result
